@@ -62,7 +62,7 @@ jobs:
           cat NuGet.config | grep -v ClearTextPassword
 
           # Restore packages
-          dotnet restore Discount.sln -p:Platform="Any CPU"
+          dotnet restore Discount.API.sln -p:Platform="Any CPU"
 
           # Restore the original NuGet.config
           mv NuGet.config.template NuGet.config
@@ -71,10 +71,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GIT_PAT }}
 
       - name: Build
-        run: dotnet build Discount.sln --no-restore --configuration Release -p:Platform="Any CPU"
+        run: dotnet build Discount.API.sln --no-restore --configuration Release -p:Platform="Any CPU"
 
       - name: Test
-        run: dotnet test Discount.sln --no-build --configuration Release -p:Platform="Any CPU" --verbosity normal
+        run: dotnet test Discount.API.sln --no-build --configuration Release -p:Platform="Any CPU" --verbosity normal
 
   # Job 2: Prepare Docker Environment
   prepare-docker:
