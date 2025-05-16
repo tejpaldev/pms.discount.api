@@ -1,5 +1,5 @@
 # Stage 1: Build the application
-FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Set up NuGet configuration to avoid Windows paths
@@ -28,27 +28,20 @@ RUN cat NuGet.config | grep -v ClearTextPassword
 COPY . .
 
 # First restore dependencies explicitly to better handle GitHub package authentication
-RUN dotnet restore "Discount.API/Discount.API.csproj" \
-    --runtime linux-musl-arm64 \
-    -p:Platform=ARM64
+RUN dotnet restore "Discount.API/Discount.API.csproj"
 
 # Then build and publish the application
 RUN dotnet publish "Discount.API/Discount.API.csproj" \
     -c Release \
-    --runtime linux-musl-arm64 \
-    -p:Platform=ARM64 \
-    --self-contained false \
     --no-restore \
     -o /app/publish
 
 # Stage 2: Create the runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine-arm64v8 AS final
+FROM --platform=$TARGETPLATFORM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
-# Install Oracle dependencies
-RUN apk add --no-cache libaio libnsl libc6-compat
 # Create a non-root user to run the application
-RUN adduser --disabled-password --home /app --gecos "" appuser && \
+RUN useradd -ms /bin/bash -d /app appuser && \
     chown -R appuser:appuser /app
 USER appuser
 
