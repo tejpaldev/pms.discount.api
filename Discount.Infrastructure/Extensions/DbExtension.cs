@@ -33,7 +33,8 @@ public static class DbExtension
 
     private static void ApplyMigrations(IConfiguration config)
     {
-        using var connection = new NpgsqlConnection(config.GetValue<string>("DatabaseSettings:ConnectionString"));
+        string connectionString = Environment.GetEnvironmentVariable("ConnectionString");
+        using var connection = new NpgsqlConnection(connectionString);
         connection.Open();
         using var cmd = new NpgsqlCommand()
         {
