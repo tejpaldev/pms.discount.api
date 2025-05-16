@@ -7,18 +7,6 @@ ENV NUGET_PACKAGES=/root/.nuget/packages
 ENV NUGET_HTTP_CACHE_PATH=/root/.local/share/NuGet/v3-cache
 ENV NUGET_PLUGINS_CACHE_PATH=/root/.local/share/NuGet/plugins-cache
 
-# Create NuGet.config to avoid Windows paths
-RUN echo '<?xml version="1.0" encoding="utf-8"?>' > NuGet.config && \
-    echo '<configuration>' >> NuGet.config && \
-    echo '  <packageSources>' >> NuGet.config && \
-    echo '    <clear />' >> NuGet.config && \
-    echo '    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />' >> NuGet.config && \
-    echo '  </packageSources>' >> NuGet.config && \
-    echo '  <fallbackPackageFolders>' >> NuGet.config && \
-    echo '    <clear />' >> NuGet.config && \
-    echo '  </fallbackPackageFolders>' >> NuGet.config && \
-    echo '</configuration>' >> NuGet.config
-
 # Set GitHub credentials for NuGet
 ARG GITHUB_USERNAME
 ARG GITHUB_TOKEN
@@ -30,16 +18,27 @@ COPY NuGet.config .
 RUN if [ -n "$GITHUB_USERNAME" ] && [ -n "$GITHUB_TOKEN" ]; then \
     sed -i "s/%GITHUB_USERNAME%/$GITHUB_USERNAME/g" NuGet.config && \
     sed -i "s/%GITHUB_TOKEN%/$GITHUB_TOKEN/g" NuGet.config; \
+    else \
+    echo "WARNING: GitHub credentials not provided. GitHub packages may not be accessible."; \
     fi
+
+# Display the NuGet.config for debugging (remove sensitive info)
+RUN cat NuGet.config | grep -v ClearTextPassword
 # Copy the entire solution
 COPY . .
 
-# Publish the application directly (skipping separate restore and build steps)
+# First restore dependencies explicitly to better handle GitHub package authentication
+RUN dotnet restore "Discount.API/Discount.API.csproj" \
+    --runtime linux-musl-arm64 \
+    -p:Platform=ARM64
+
+# Then build and publish the application
 RUN dotnet publish "Discount.API/Discount.API.csproj" \
     -c Release \
     --runtime linux-musl-arm64 \
     -p:Platform=ARM64 \
     --self-contained false \
+    --no-restore \
     -o /app/publish
 
 # Stage 2: Create the runtime image
