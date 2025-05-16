@@ -178,8 +178,11 @@ jobs:
               environment:
                 - ASPNETCORE_ENVIRONMENT=Production
                 - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true
-                - API_KEY=${API_KEY}
-                - API_SECRET=${API_SECRET}
+                - BINANCE_API_KEY=${BINANCE_API_KEY}
+                - BINANCE_API_SECRET=${BINANCE_API_SECRET}
+                - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+                - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+                - OPENAI_API_KEY=${OPENAI_API_KEY}
                 - DATABASE_CONNECTION_STRING=${DATABASE_CONNECTION_STRING}
               volumes:
                 - api-logs:/app/logs
