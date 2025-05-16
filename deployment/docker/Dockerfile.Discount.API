@@ -19,6 +19,18 @@ RUN echo '<?xml version="1.0" encoding="utf-8"?>' > NuGet.config && \
     echo '  </fallbackPackageFolders>' >> NuGet.config && \
     echo '</configuration>' >> NuGet.config
 
+# Set GitHub credentials for NuGet
+ARG GITHUB_USERNAME
+ARG GITHUB_TOKEN
+
+# Copy NuGet.config first
+COPY NuGet.config .
+
+# Update GitHub credentials in NuGet.config if provided
+RUN if [ -n "$GITHUB_USERNAME" ] && [ -n "$GITHUB_TOKEN" ]; then \
+    sed -i "s/%GITHUB_USERNAME%/$GITHUB_USERNAME/g" NuGet.config && \
+    sed -i "s/%GITHUB_TOKEN%/$GITHUB_TOKEN/g" NuGet.config; \
+    fi
 # Copy the entire solution
 COPY . .
 

@@ -26,8 +26,19 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      # Configure NuGet authentication for GitHub Packages
+      - name: Setup NuGet authentication
+        run: |
+          dotnet nuget update source github \
+            --username ${{ github.repository_owner }} \
+            --password ${{ secrets.GITHUB_TOKEN }} \
+            --store-password-in-clear-text
+
       - name: Restore dependencies
         run: dotnet restore Discount.sln -p:Platform="Any CPU"
+        env:
+          GITHUB_USERNAME: ${{ github.repository_owner }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
         run: dotnet build Discount.sln --no-restore --configuration Release -p:Platform="Any CPU"
@@ -109,6 +120,8 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             DOTNET_VERSION=${{ env.DOTNET_VERSION }}
+            GITHUB_USERNAME=${{ github.repository_owner }}
+            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
 
   # Job 4: Prepare API Deployment Files
   prepare-api-deployment:
@@ -133,7 +146,7 @@ jobs:
               container_name: discount-api
               restart: unless-stopped
               ports:
-                - "5000:80"
+                - "5002:80"
               environment:
                 - ASPNETCORE_ENVIRONMENT=Production
                 - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true
@@ -197,7 +210,7 @@ jobs:
             sudo ufw allow 22/tcp comment 'SSH'
             sudo ufw allow 80/tcp comment 'HTTP'
             sudo ufw allow 443/tcp comment 'HTTPS'
-            sudo ufw allow 5000/tcp comment 'API'
+            sudo ufw allow 5002/tcp comment 'Discount API'
 
             # Enable firewall if not already enabled
             if ! sudo ufw status | grep -q "Status: active"; then
@@ -294,6 +307,6 @@ jobs:
           echo "Waiting for API service to start..."
           sleep 15
           echo "Checking API health..."
-          curl -sSf "http://$SERVER_HOST:5000/health" || echo "API health check failed, but continuing..."
+          curl -sSf "http://$SERVER_HOST:5002/health" || echo "API health check failed, but continuing..."
 
           echo "API deployment verification completed."
