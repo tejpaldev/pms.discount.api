@@ -7,24 +7,35 @@ ENV NUGET_PACKAGES=/root/.nuget/packages
 ENV NUGET_HTTP_CACHE_PATH=/root/.local/share/NuGet/v3-cache
 ENV NUGET_PLUGINS_CACHE_PATH=/root/.local/share/NuGet/plugins-cache
 
+# Create NuGet.config to avoid Windows paths
+RUN echo '<?xml version="1.0" encoding="utf-8"?>' > NuGet.config && \
+    echo '<configuration>' >> NuGet.config && \
+    echo '  <packageSources>' >> NuGet.config && \
+    echo '    <clear />' >> NuGet.config && \
+    echo '    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />' >> NuGet.config && \
+    echo '  </packageSources>' >> NuGet.config && \
+    echo '  <fallbackPackageFolders>' >> NuGet.config && \
+    echo '    <clear />' >> NuGet.config && \
+    echo '  </fallbackPackageFolders>' >> NuGet.config && \
+    echo '</configuration>' >> NuGet.config
+
 # Copy the entire solution
 COPY . .
 
 # Publish the application directly (skipping separate restore and build steps)
 RUN dotnet publish "Discount.API/Discount.API.csproj" \
     -c Release \
-    --runtime linux-musl-x64 \
-    -p:Platform="Any CPU" \
+    --runtime linux-musl-arm64 \
+    -p:Platform=ARM64 \
     --self-contained false \
     -o /app/publish
 
 # Stage 2: Create the runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS final
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine-arm64v8 AS final
 WORKDIR /app
 
-# Install dependencies if needed
+# Install Oracle dependencies
 RUN apk add --no-cache libaio libnsl libc6-compat
-
 # Create a non-root user to run the application
 RUN adduser --disabled-password --home /app --gecos "" appuser && \
     chown -R appuser:appuser /app

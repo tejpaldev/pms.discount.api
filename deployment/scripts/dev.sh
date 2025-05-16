@@ -1,10 +1,10 @@
 #!/bin/bash
-# Microservice Development Script for Linux/macOS
+# Binance Arbitrage Development Script for Linux/macOS
 
 set -e
 
 function show_help {
-    echo "Microservice Development Script"
+    echo "Binance Arbitrage Development Script"
     echo "Usage: ./deployment/scripts/dev.sh [command]"
     echo ""
     echo "Commands:"
@@ -14,7 +14,7 @@ function show_help {
     echo "  restart     Restart the development environment"
     echo "  logs        View logs from all containers"
     echo "  api-logs    View logs from the API container"
-    echo "  db-logs     View logs from the database container"
+    echo "  client-logs View logs from the Client container"
     echo "  build       Rebuild the containers"
     echo "  clean       Remove all containers, volumes, and images"
     echo ""
@@ -25,6 +25,7 @@ function start_environment {
     docker-compose up -d
     echo "Development environment started."
     echo "API is available at: http://localhost:5000/swagger"
+    echo "Client is available at: http://localhost"
 }
 
 function stop_environment {
@@ -81,8 +82,8 @@ case $COMMAND in
     api-logs)
         show_logs "api"
         ;;
-    db-logs)
-        show_logs "postgres"
+    client-logs)
+        show_logs "client"
         ;;
     build)
         build_environment

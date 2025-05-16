@@ -2,16 +2,15 @@ name: Build and Deploy
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  API_IMAGE_NAME: ${{ github.repository }}/api
-  CLIENT_IMAGE_NAME: ${{ github.repository }}/client
-  DOTNET_VERSION: '8.0.x'
+  DISCOUNT_API_IMAGE_NAME: ${{ github.repository }}/api
+  DOTNET_VERSION: "8.0.x"
 
 jobs:
   # Job 1: Build and Test
@@ -28,13 +27,13 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore dependencies
-        run: dotnet restore BinanceArbitrage.sln -p:Platform="Any CPU"
+        run: dotnet restore Discount.sln -p:Platform="Any CPU"
 
       - name: Build
-        run: dotnet build BinanceArbitrage.sln --no-restore --configuration Release -p:Platform="Any CPU"
+        run: dotnet build Discount.sln --no-restore --configuration Release -p:Platform="Any CPU"
 
       - name: Test
-        run: dotnet test BinanceArbitrage.sln --no-build --configuration Release -p:Platform="Any CPU" --verbosity normal
+        run: dotnet test Discount.sln --no-build --configuration Release -p:Platform="Any CPU" --verbosity normal
 
   # Job 2: Prepare Docker Environment
   prepare-docker:
@@ -47,8 +46,6 @@ jobs:
     outputs:
       api_tags: ${{ steps.meta-api.outputs.tags }}
       api_labels: ${{ steps.meta-api.outputs.labels }}
-      client_tags: ${{ steps.meta-client.outputs.tags }}
-      client_labels: ${{ steps.meta-client.outputs.labels }}
       sha_tag: sha-${{ github.sha }}
 
     steps:
@@ -71,16 +68,7 @@ jobs:
         id: meta-api
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=sha,format=short
-
-      - name: Extract metadata (tags, labels) for Client
-        id: meta-client
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.CLIENT_IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.DISCOUNT_API_IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=sha,format=short
@@ -112,9 +100,9 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./deployment/docker/Dockerfile.api
+          file: ./deployment/docker/Dockerfile.Discount.API
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:sha-${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/${{ env.DISCOUNT_API_IMAGE_NAME }}:sha-${{ github.sha }}
           labels: ${{ needs.prepare-docker.outputs.api_labels }}
           platforms: linux/arm64
           cache-from: type=gha
@@ -122,44 +110,7 @@ jobs:
           build-args: |
             DOTNET_VERSION=${{ env.DOTNET_VERSION }}
 
-  # Job 4: Build and Push Client Image
-  build-client-image:
-    name: Build and Push Client Image
-    needs: prepare-docker
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push Client image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./deployment/docker/Dockerfile.client
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.REGISTRY }}/${{ env.CLIENT_IMAGE_NAME }}:sha-${{ github.sha }}
-          labels: ${{ needs.prepare-docker.outputs.client_labels }}
-          platforms: linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            DOTNET_VERSION=${{ env.DOTNET_VERSION }}
-
-  # Job 5: Prepare API Deployment Files
+  # Job 4: Prepare API Deployment Files
   prepare-api-deployment:
     name: Prepare API Deployment Files
     needs: [build-api-image]
@@ -178,24 +129,21 @@ jobs:
           cat > deployment/temp/docker-compose.yml << 'EOL'
           services:
             api:
-              image: ${API_IMAGE}
-              container_name: binance-arbitrage-api
+              image: ${DISCOUNT_API_IMAGE}
+              container_name: discount-api
               restart: unless-stopped
               ports:
                 - "5000:80"
               environment:
                 - ASPNETCORE_ENVIRONMENT=Production
                 - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true
-                - BINANCE_API_KEY=${BINANCE_API_KEY}
-                - BINANCE_API_SECRET=${BINANCE_API_SECRET}
-                - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-                - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
-                - OPENAI_API_KEY=${OPENAI_API_KEY}
+                - API_KEY=${API_KEY}
+                - API_SECRET=${API_SECRET}
                 - DATABASE_CONNECTION_STRING=${DATABASE_CONNECTION_STRING}
               volumes:
                 - api-logs:/app/logs
               networks:
-                - binance-arbitrage-network
+                - discount-api-network
               healthcheck:
                 test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health || exit 0"]
                 interval: 30s
@@ -204,7 +152,7 @@ jobs:
                 start_period: 10s
 
           networks:
-            binance-arbitrage-network:
+            discount-api-network:
               driver: bridge
 
           volumes:
@@ -219,7 +167,7 @@ jobs:
           set -e
 
           # Set environment variables for docker-compose
-          export API_IMAGE="${API_IMAGE}"
+          export DISCOUNT_API_IMAGE="${DISCOUNT_API_IMAGE}"
           export BINANCE_API_KEY="${BINANCE_API_KEY}"
           export BINANCE_API_SECRET="${BINANCE_API_SECRET}"
           export TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN}"
@@ -228,7 +176,7 @@ jobs:
           export DATABASE_CONNECTION_STRING="${DATABASE_CONNECTION_STRING}"
 
           # Debug information
-          echo "Using API image: ${API_IMAGE}"
+          echo "Using API image: ${DISCOUNT_API_IMAGE}"
           echo "Using GitHub username: ${GITHUB_USERNAME}"
 
           # Log in to GitHub Container Registry
@@ -270,81 +218,7 @@ jobs:
             deployment/temp/docker-compose.yml
             deployment/temp/deploy-api.sh
 
-  # Job 6: Prepare Client Deployment Files
-  prepare-client-deployment:
-    name: Prepare Client Deployment Files
-    needs: [build-client-image]
-    if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Create deployment directory
-        run: mkdir -p deployment/temp
-
-      - name: Create Client docker-compose.yml for deployment
-        run: |
-          cat > deployment/temp/docker-compose-client.yml << 'EOL'
-          services:
-            client:
-              image: ${CLIENT_IMAGE}
-              container_name: binance-arbitrage-client
-              restart: unless-stopped
-              ports:
-                - "80:80"
-              networks:
-                - binance-arbitrage-network
-              healthcheck:
-                test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/ || exit 0"]
-                interval: 30s
-                timeout: 10s
-                retries: 3
-                start_period: 10s
-
-          networks:
-            binance-arbitrage-network:
-              driver: bridge
-          EOL
-
-      - name: Create Client deployment script
-        run: |
-          cat > deployment/temp/deploy-client.sh << 'EOL'
-          #!/bin/bash
-          set -e
-
-          # Set environment variables for docker-compose
-          export CLIENT_IMAGE="${CLIENT_IMAGE}"
-
-          # Debug information
-          echo "Using Client image: ${CLIENT_IMAGE}"
-          echo "Using GitHub username: ${GITHUB_USERNAME}"
-
-          # Log in to GitHub Container Registry
-          echo "${GITHUB_TOKEN}" | docker login ghcr.io -u ${GITHUB_USERNAME} --password-stdin
-
-          # Pull the latest images
-          docker-compose -f docker-compose-client.yml pull
-
-          # Start the containers
-          docker-compose -f docker-compose-client.yml up -d
-
-          # Clean up old images
-          docker image prune -f
-          EOL
-
-          chmod +x deployment/temp/deploy-client.sh
-
-      - name: Upload Client deployment files as artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: client-deployment-files
-          path: |
-            deployment/temp/docker-compose-client.yml
-            deployment/temp/deploy-client.sh
-
-  # Job 7: Deploy API to Server
+  # Job 5: Deploy API to Server
   deploy-api-to-server:
     name: Deploy API to Server
     needs: prepare-api-deployment
@@ -373,7 +247,7 @@ jobs:
 
       - name: Deploy API to server
         env:
-          API_IMAGE: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:sha-${{ github.sha }}
+          DISCOUNT_API_IMAGE: ${{ env.REGISTRY }}/${{ env.DISCOUNT_API_IMAGE_NAME }}:sha-${{ github.sha }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           BINANCE_API_KEY: ${{ secrets.BINANCE_API_KEY }}
@@ -386,15 +260,15 @@ jobs:
           GITHUB_USERNAME: ${{ github.repository_owner }}
         run: |
           # Create deployment directory on server
-          ssh $SSH_USER@$SERVER_HOST "mkdir -p ~/binance-arbitrage"
+          ssh $SSH_USER@$SERVER_HOST "mkdir -p ~/discount-api"
 
           # Copy deployment files to server
-          scp deployment/temp/docker-compose.yml $SSH_USER@$SERVER_HOST:~/binance-arbitrage/
-          scp deployment/temp/deploy-api.sh $SSH_USER@$SERVER_HOST:~/binance-arbitrage/
+          scp deployment/temp/docker-compose.yml $SSH_USER@$SERVER_HOST:~/microservice/
+          scp deployment/temp/deploy-api.sh $SSH_USER@$SERVER_HOST:~/microservice/
 
           # Set environment variables and run deployment script
-          ssh $SSH_USER@$SERVER_HOST "cd ~/binance-arbitrage && \
-            export API_IMAGE='$API_IMAGE' && \
+          ssh $SSH_USER@$SERVER_HOST "cd ~/discount-api && \
+            export DISCOUNT_API_IMAGE='$DISCOUNT_API_IMAGE' && \
             export BINANCE_API_KEY='$BINANCE_API_KEY' && \
             export BINANCE_API_SECRET='$BINANCE_API_SECRET' && \
             export TELEGRAM_BOT_TOKEN='$TELEGRAM_BOT_TOKEN' && \
@@ -405,7 +279,7 @@ jobs:
             export GITHUB_USERNAME='$GITHUB_USERNAME' && \
             ./deploy-api.sh"
 
-  # Job 8: Verify API Deployment
+  # Job 6: Verify API Deployment
   verify-api-deployment:
     name: Verify API Deployment
     needs: deploy-api-to-server
@@ -423,68 +297,3 @@ jobs:
           curl -sSf "http://$SERVER_HOST:5000/health" || echo "API health check failed, but continuing..."
 
           echo "API deployment verification completed."
-
-  # Job 9: Deploy Client to Server
-  deploy-client-to-server:
-    name: Deploy Client to Server
-    needs: [verify-api-deployment, prepare-client-deployment]
-    if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download Client deployment files
-        uses: actions/download-artifact@v4
-        with:
-          name: client-deployment-files
-          path: deployment/temp
-
-      - name: Set up SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          echo "${{ secrets.SERVER_HOST }} $(ssh-keyscan ${{ secrets.SERVER_HOST }})" >> ~/.ssh/known_hosts
-
-      - name: Make deploy script executable
-        run: chmod +x deployment/temp/deploy-client.sh
-
-      - name: Deploy Client to server
-        env:
-          CLIENT_IMAGE: ${{ env.REGISTRY }}/${{ env.CLIENT_IMAGE_NAME }}:sha-${{ github.sha }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          GITHUB_TOKEN: ${{ secrets.GIT_PAT }}
-          GITHUB_USERNAME: ${{ github.repository_owner }}
-        run: |
-          # Copy deployment files to server
-          scp deployment/temp/docker-compose-client.yml $SSH_USER@$SERVER_HOST:~/binance-arbitrage/
-          scp deployment/temp/deploy-client.sh $SSH_USER@$SERVER_HOST:~/binance-arbitrage/
-
-          # Set environment variables and run deployment script
-          ssh $SSH_USER@$SERVER_HOST "cd ~/binance-arbitrage && \
-            export CLIENT_IMAGE='$CLIENT_IMAGE' && \
-            export GITHUB_TOKEN='$GITHUB_TOKEN' && \
-            export GITHUB_USERNAME='$GITHUB_USERNAME' && \
-            ./deploy-client.sh"
-
-  # Job 10: Verify Client Deployment
-  verify-client-deployment:
-    name: Verify Client Deployment
-    needs: deploy-client-to-server
-    if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check Client health
-        env:
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-        run: |
-          echo "Waiting for Client service to start..."
-          sleep 15
-          echo "Checking Client health..."
-          curl -sSf "http://$SERVER_HOST" || echo "Client health check failed, but continuing..."
-
-          echo "Client deployment verification completed."

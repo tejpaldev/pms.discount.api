@@ -5,45 +5,28 @@ services:
   api:
     build:
       context: ../..
-      dockerfile: deployment/docker/Dockerfile.api
-    container_name: microservice-api
+      dockerfile: deployment/docker/Dockerfile.Discount.API
+    container_name: discount-api
     restart: unless-stopped
     ports:
       - "5000:80"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true
-      - API_KEY=${API_KEY:-}
-      - API_SECRET=${API_SECRET:-}
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
-      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+      - GITHUB_BINANCE_API_KEY=${GITHUB_BINANCE_API_KEY:-}
+      - GITHUB_BINANCE_API_SECRET=${GITHUB_BINANCE_API_SECRET:-}
+      - GITHUB_TELEGRAM_BOT_TOKEN=${GITHUB_TELEGRAM_BOT_TOKEN:-}
+      - GITHUB_TELEGRAM_CHAT_ID=${GITHUB_TELEGRAM_CHAT_ID:-}
+      - GITHUB_OPENAI_API_KEY=${GITHUB_OPENAI_API_KEY:-}
     volumes:
       - api-logs:/app/logs
     networks:
-      - microservice-network
-
-  # Database service (PostgreSQL)
-  postgres:
-    image: postgres:latest
-    container_name: microservice-postgres
-    restart: unless-stopped
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=Password@1
-      - POSTGRES_DB=DiscountDb
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    networks:
-      - microservice-network
+      - discount-api-network
 
 networks:
-  microservice-network:
+  discount-api-network:
     driver: bridge
 
 volumes:
   api-logs:
-    driver: local
-  postgres-data:
     driver: local
