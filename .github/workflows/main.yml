@@ -17,6 +17,9 @@ jobs:
   build-and-test:
     name: Build and Test .NET Solution
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,19 +32,43 @@ jobs:
       # Configure NuGet authentication for GitHub Packages
       - name: Setup NuGet authentication
         run: |
-          dotnet nuget update source github \
-            --username ${{ github.repository_owner }} \
-            --password ${{ secrets.GITHUB_TOKEN }} \
-            --store-password-in-clear-text
+          # First, check if the source exists
+          if dotnet nuget list source | grep -q "github"; then
+            echo "Updating existing GitHub source..."
+            dotnet nuget update source github \
+              --username ${{ github.repository_owner }} \
+              --password ${{ secrets.GIT_PAT }} \
+              --store-password-in-clear-text
+          else
+            echo "Adding GitHub source..."
+            dotnet nuget add source https://nuget.pkg.github.com/tejpaldev/index.json \
+              --name github \
+              --username ${{ github.repository_owner }} \
+              --password ${{ secrets.GIT_PAT }} \
+              --store-password-in-clear-text
+          fi
 
           # Verify the NuGet source is configured correctly
           dotnet nuget list source
 
       - name: Restore dependencies
-        run: dotnet restore Discount.sln -p:Platform="Any CPU"
+        run: |
+          # Create a temporary NuGet.config with direct token substitution
+          cp NuGet.config NuGet.config.template
+          sed -i "s/%GITHUB_USERNAME%/${{ github.repository_owner }}/g" NuGet.config
+          sed -i "s/%GITHUB_TOKEN%/${{ secrets.GIT_PAT }}/g" NuGet.config
+
+          # Show NuGet.config (without exposing the token)
+          cat NuGet.config | grep -v ClearTextPassword
+
+          # Restore packages
+          dotnet restore Discount.sln -p:Platform="Any CPU"
+
+          # Restore the original NuGet.config
+          mv NuGet.config.template NuGet.config
         env:
           GITHUB_USERNAME: ${{ github.repository_owner }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GIT_PAT }}
 
       - name: Build
         run: dotnet build Discount.sln --no-restore --configuration Release -p:Platform="Any CPU"
@@ -124,7 +151,7 @@ jobs:
           build-args: |
             DOTNET_VERSION=${{ env.DOTNET_VERSION }}
             GITHUB_USERNAME=${{ github.repository_owner }}
-            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+            GITHUB_TOKEN=${{ secrets.GIT_PAT }}
 
   # Job 4: Prepare API Deployment Files
   prepare-api-deployment:
