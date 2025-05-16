@@ -1,0 +1,49 @@
+# Stage 1: Build the application
+FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
+WORKDIR /src
+
+# Set up NuGet configuration to avoid Windows paths
+ENV NUGET_PACKAGES=/root/.nuget/packages
+ENV NUGET_HTTP_CACHE_PATH=/root/.local/share/NuGet/v3-cache
+ENV NUGET_PLUGINS_CACHE_PATH=/root/.local/share/NuGet/plugins-cache
+
+# Copy the entire solution
+COPY . .
+
+# Publish the application directly (skipping separate restore and build steps)
+RUN dotnet publish "Discount.API/Discount.API.csproj" \
+    -c Release \
+    --runtime linux-musl-x64 \
+    -p:Platform="Any CPU" \
+    --self-contained false \
+    -o /app/publish
+
+# Stage 2: Create the runtime image
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS final
+WORKDIR /app
+
+# Install dependencies if needed
+RUN apk add --no-cache libaio libnsl libc6-compat
+
+# Create a non-root user to run the application
+RUN adduser --disabled-password --home /app --gecos "" appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
+# Copy the published application
+COPY --from=build --chown=appuser:appuser /app/publish .
+
+# Set environment variables
+ENV ASPNETCORE_URLS=http://+:80
+ENV ASPNETCORE_ENVIRONMENT=Production
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true
+
+# Create directory for logs
+RUN mkdir -p logs && \
+    chmod 755 logs
+
+# Expose port 80
+EXPOSE 80
+
+# Set the entry point
+ENTRYPOINT ["dotnet", "Discount.API.dll"]
