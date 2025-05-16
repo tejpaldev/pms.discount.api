@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  API_IMAGE_NAME: ${{ github.repository_owner }}/api
+  API_IMAGE_NAME: ${{ github.repository_owner }}/pms.discount.api
   DOTNET_VERSION: "8.0.x"
 
 jobs:
@@ -173,8 +173,6 @@ jobs:
               image: ${API_IMAGE}
               container_name: discount-api
               restart: unless-stopped
-              ports:
-                - "5002:80"
               environment:
                 - ASPNETCORE_ENVIRONMENT=Production
                 - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true
@@ -183,11 +181,21 @@ jobs:
                 - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
                 - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
                 - OPENAI_API_KEY=${OPENAI_API_KEY}
-                - DATABASE_CONNECTION_STRING=${DATABASE_CONNECTION_STRING}
+                - PMS_DISCOUNT_CONNECTION_STRING=${PMS_DISCOUNT_CONNECTION_STRING}
               volumes:
                 - api-logs:/app/logs
               networks:
-                - discount-api-network
+                - pms_network
+              labels:
+                - "traefik.enable=true"
+                # Route based on host + path prefix
+                - "traefik.http.routers.discount-api.rule=Host(`api.yalkha.com`) && PathPrefix(`/discount`)"
+                - "traefik.http.routers.discount-api.entrypoints=websecure"
+                - "traefik.http.routers.discount-api.tls.certresolver=letsencrypt"
+                - "traefik.http.services.discount-api.loadbalancer.server.port=80"
+                # Use a middleware to strip the prefix before forwarding to your service
+                - "traefik.http.middlewares.discount-strip.stripprefix.prefixes=/discount"
+                - "traefik.http.routers.discount-api.middlewares=discount-strip"
               healthcheck:
                 test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health || exit 0"]
                 interval: 30s
@@ -196,8 +204,8 @@ jobs:
                 start_period: 10s
 
           networks:
-            discount-api-network:
-              driver: bridge
+            pms_network:
+              external: true
 
           volumes:
             api-logs:
@@ -217,7 +225,7 @@ jobs:
           export TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN}"
           export TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID}"
           export OPENAI_API_KEY="${OPENAI_API_KEY}"
-          export DATABASE_CONNECTION_STRING="${DATABASE_CONNECTION_STRING}"
+          export PMS_DISCOUNT_CONNECTION_STRING="${PMS_DISCOUNT_CONNECTION_STRING}"
 
           # Debug information
           echo "Using API image: ${API_IMAGE}"
@@ -234,22 +242,6 @@ jobs:
 
           # Clean up old images
           docker image prune -f
-
-          # Set up firewall rules if needed
-          if command -v ufw &> /dev/null; then
-            echo "Configuring firewall..."
-            sudo ufw allow 22/tcp comment 'SSH'
-            sudo ufw allow 80/tcp comment 'HTTP'
-            sudo ufw allow 443/tcp comment 'HTTPS'
-            sudo ufw allow 5002/tcp comment 'Discount API'
-
-            # Enable firewall if not already enabled
-            if ! sudo ufw status | grep -q "Status: active"; then
-              sudo ufw --force enable
-            fi
-
-            echo "Firewall configured."
-          fi
           EOL
 
           chmod +x deployment/temp/deploy-api.sh
@@ -299,7 +291,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          DATABASE_CONNECTION_STRING: ${{ secrets.DATABASE_CONNECTION_STRING }}
+          PMS_DISCOUNT_CONNECTION_STRING: ${{ secrets.PMS_DISCOUNT_CONNECTION_STRING }}
           GITHUB_TOKEN: ${{ secrets.GIT_PAT }}
           GITHUB_USERNAME: ${{ github.repository_owner }}
         run: |
@@ -318,7 +310,7 @@ jobs:
             export TELEGRAM_BOT_TOKEN='$TELEGRAM_BOT_TOKEN' && \
             export TELEGRAM_CHAT_ID='$TELEGRAM_CHAT_ID' && \
             export OPENAI_API_KEY='$OPENAI_API_KEY' && \
-            export DATABASE_CONNECTION_STRING='$DATABASE_CONNECTION_STRING' && \
+            export PMS_DISCOUNT_CONNECTION_STRING='$PMS_DISCOUNT_CONNECTION_STRING' && \
             export GITHUB_TOKEN='$GITHUB_TOKEN' && \
             export GITHUB_USERNAME='$GITHUB_USERNAME' && \
             ./deploy-api.sh"

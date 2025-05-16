@@ -5,14 +5,13 @@ EXPOSE 443
 
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-COPY ["Services/Discount/Discount.API/Discount.API.csproj", "Services/Discount/Discount.API/"]
-COPY ["Services/Discount/Discount.Application/Discount.Application.csproj", "Services/Discount/Discount.Application/"]
-COPY ["Services/Discount/Discount.Core/Discount.Core.csproj", "Services/Discount/Discount.Core/"]
-COPY ["Services/Discount/Discount.Infrastructure/Discount.Infrastructure.csproj", "Services/Discount/Discount.Infrastructure/"]
-COPY ["Infrastructure/Common.Logging/Common.Logging.csproj", "Infrastructure/Common.Logging/"]
-RUN dotnet restore "Services/Discount/Discount.API/Discount.API.csproj"
+COPY ["Discount.API/Discount.API.csproj", "Discount.API/"]
+COPY ["Discount.Application/Discount.Application.csproj", "Discount.Application/"]
+COPY ["Discount.Core/Discount.Core.csproj", "Discount.Core/"]
+COPY ["Discount.Infrastructure/Discount.Infrastructure.csproj", "Discount.Infrastructure/"]
+RUN dotnet restore "Discount.API/Discount.API.csproj"
 COPY . .
-WORKDIR "/src/Services/Discount/Discount.API"
+WORKDIR "/src/Discount.API"
 ARG TARGETARCH
 RUN dotnet build "Discount.API.csproj" -c Release -o /app/build /p:Platform=$TARGETARCH
 

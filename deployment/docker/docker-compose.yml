@@ -1,35 +1,39 @@
-version: '3.8'
-
-services:
-  # API service
-  api:
-    build:
-      context: ../..
-      dockerfile: deployment/docker/Dockerfile.Discount.API
-      args:
-        - GITHUB_USERNAME=${GITHUB_USERNAME:-}
-        - GITHUB_TOKEN=${GITHUB_TOKEN:-}
-    container_name: discount-api
-    restart: unless-stopped
-    ports:
-      - "5002:80"
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true
-      - GITHUB_BINANCE_API_KEY=${GITHUB_BINANCE_API_KEY:-}
-      - GITHUB_BINANCE_API_SECRET=${GITHUB_BINANCE_API_SECRET:-}
-      - GITHUB_TELEGRAM_BOT_TOKEN=${GITHUB_TELEGRAM_BOT_TOKEN:-}
-      - GITHUB_TELEGRAM_CHAT_ID=${GITHUB_TELEGRAM_CHAT_ID:-}
-      - GITHUB_OPENAI_API_KEY=${GITHUB_OPENAI_API_KEY:-}
-    volumes:
-      - api-logs:/app/logs
-    networks:
-      - discount-api-network
-
-networks:
-  discount-api-network:
-    driver: bridge
-
-volumes:
-  api-logs:
-    driver: local
+# Docker Compose for Discount.API 
+version: '3.8' 
+ 
+services: 
+  # API service 
+  api: 
+    build: 
+      context: ../.. 
+      dockerfile: deployment/docker/Dockerfile.Discount.API 
+      args: 
+        - GITHUB_USERNAME=${GITHUB_USERNAME:-} 
+        - GITHUB_TOKEN=${GITHUB_TOKEN:-} 
+    container_name: discount-api 
+    restart: unless-stopped 
+    environment: 
+      - ASPNETCORE_ENVIRONMENT=Production 
+      - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true 
+      - ConnectionStrings__DiscountDb=${PMS_DISCOUNT_CONNECTION_STRING:-} 
+      - ConnectionStrings__Redis=${REDIS_CONNECTION_STRING:-} 
+    volumes: 
+      - api-logs:/app/logs 
+    networks: 
+      - pms_network 
+    labels: 
+      - "traefik.enable=true" 
+      - "traefik.http.routers.discount-api.rule=Host(`api.yalkha.com`) && PathPrefix(`/discount`)" 
+      - "traefik.http.routers.discount-api.entrypoints=websecure" 
+      - "traefik.http.routers.discount-api.tls.certresolver=letsencrypt" 
+      - "traefik.http.services.discount-api.loadbalancer.server.port=80" 
+      - "traefik.http.middlewares.discount-api-strip.stripprefix.prefixes=/discount" 
+      - "traefik.http.routers.discount-api.middlewares=discount-api-strip@docker" 
+ 
+networks: 
+  pms_network: 
+    external: true 
+ 
+volumes: 
+  api-logs: 
+    driver: local 
