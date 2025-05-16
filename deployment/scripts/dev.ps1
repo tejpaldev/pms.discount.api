@@ -27,7 +27,7 @@ function Start-Environment {
     Write-Host "Starting development environment..."
     docker-compose up -d
     Write-Host "Development environment started."
-    Write-Host "API is available at: http://localhost:5000/swagger"
+    Write-Host "API is available at: http://localhost:5002/swagger"
 }
 
 function Stop-Environment {

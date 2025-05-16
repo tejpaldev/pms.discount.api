@@ -24,7 +24,7 @@ function start_environment {
     echo "Starting development environment..."
     docker-compose up -d
     echo "Development environment started."
-    echo "API is available at: http://localhost:5000/swagger"
+    echo "API is available at: http://localhost:5002/swagger"
     echo "Client is available at: http://localhost"
 }
 
