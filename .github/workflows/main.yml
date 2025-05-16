@@ -304,8 +304,8 @@ jobs:
           ssh $SSH_USER@$SERVER_HOST "mkdir -p ~/discount-api"
 
           # Copy deployment files to server
-          scp deployment/temp/docker-compose.yml $SSH_USER@$SERVER_HOST:~/microservice/
-          scp deployment/temp/deploy-api.sh $SSH_USER@$SERVER_HOST:~/microservice/
+          scp deployment/temp/docker-compose.yml $SSH_USER@$SERVER_HOST:~/discount-api/
+          scp deployment/temp/deploy-api.sh $SSH_USER@$SERVER_HOST:~/discount-api/
 
           # Set environment variables and run deployment script
           ssh $SSH_USER@$SERVER_HOST "cd ~/discount-api && \
