@@ -6,10 +6,13 @@ services:
     build:
       context: ../..
       dockerfile: deployment/docker/Dockerfile.Discount.API
+      args:
+        - GITHUB_USERNAME=${GITHUB_USERNAME:-}
+        - GITHUB_TOKEN=${GITHUB_TOKEN:-}
     container_name: discount-api
     restart: unless-stopped
     ports:
-      - "5000:80"
+      - "5002:80"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true
