@@ -1,0 +1,218 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  API_IMAGE_NAME: ${{ github.repository }}/api
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test --no-build --configuration Release --verbosity normal
+
+  setup-docker:
+    name: Setup Docker
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+  build-api-image:
+    name: Build API Image
+    needs: setup-docker
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}
+          tags: |
+            type=sha,format=long
+            type=ref,event=branch
+            type=ref,event=tag
+            latest
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./deployment/docker/Dockerfile.api
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  prepare-deployment:
+    name: Prepare Deployment
+    needs: build-api-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Create deployment script
+        run: |
+          cat > deploy.sh << 'EOL'
+          #!/bin/bash
+          set -e
+
+          # Pull the latest images
+          echo "Pulling latest images..."
+          docker pull $API_IMAGE
+
+          # Create docker-compose.yml
+          echo "Creating docker-compose.yml..."
+          cat > docker-compose.yml << 'EOF'
+          version: '3.8'
+          services:
+            api:
+              image: ${API_IMAGE}
+              container_name: microservice-api
+              restart: unless-stopped
+              ports:
+                - "5000:80"
+              environment:
+                - ASPNETCORE_ENVIRONMENT=Production
+                - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true
+                - API_KEY=${API_KEY}
+                - API_SECRET=${API_SECRET}
+                - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+                - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+              volumes:
+                - api-logs:/app/logs
+              networks:
+                - microservice-network
+
+            postgres:
+              image: postgres:latest
+              container_name: microservice-postgres
+              restart: unless-stopped
+              ports:
+                - "5432:5432"
+              environment:
+                - POSTGRES_USER=admin
+                - POSTGRES_PASSWORD=Password@1
+                - POSTGRES_DB=DiscountDb
+              volumes:
+                - postgres-data:/var/lib/postgresql/data
+              networks:
+                - microservice-network
+
+          networks:
+            microservice-network:
+              driver: bridge
+
+          volumes:
+            api-logs:
+              driver: local
+            postgres-data:
+              driver: local
+          EOF
+
+          # Start the containers
+          echo "Starting containers..."
+          docker-compose up -d
+
+          echo "Deployment completed successfully!"
+          EOL
+
+          chmod +x deploy.sh
+
+      - name: Upload deployment script
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-script
+          path: deploy.sh
+
+  deploy-to-server:
+    name: Deploy to Server
+    needs: prepare-deployment
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Download deployment script
+        uses: actions/download-artifact@v3
+        with:
+          name: deployment-script
+          path: .
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Create .ssh directory and known_hosts file
+        run: |
+          mkdir -p ~/.ssh
+          touch ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Create deployment directory on server
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p ~/microservice"
+
+      - name: Copy deployment script to server
+        run: |
+          scp deploy.sh ${{ secrets.SSH_USER }}@${{ secrets.SERVER_HOST }}:~/microservice/
+
+      - name: Execute deployment script on server
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SERVER_HOST }} "cd ~/microservice && \
+          export API_IMAGE='${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:latest' && \
+          export API_KEY='${{ secrets.API_KEY }}' && \
+          export API_SECRET='${{ secrets.API_SECRET }}' && \
+          export TELEGRAM_BOT_TOKEN='${{ secrets.TELEGRAM_BOT_TOKEN }}' && \
+          export TELEGRAM_CHAT_ID='${{ secrets.TELEGRAM_CHAT_ID }}' && \
+          ./deploy.sh"
