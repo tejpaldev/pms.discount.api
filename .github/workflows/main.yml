@@ -139,7 +139,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./deployment/docker/Dockerfile.Discount.API
+          file: ./deployment/docker/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:sha-${{ github.sha }}
           labels: ${{ needs.prepare-docker.outputs.api_labels }}
@@ -183,11 +183,11 @@ jobs:
                 - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
                 - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
                 - OPENAI_API_KEY=${OPENAI_API_KEY}
-                - DATABASE_CONNECTION_STRING=${DATABASE_CONNECTION_STRING}
+                - PMS_DISCOUNT_CONNECTION_STRING=${PMS_DISCOUNT_CONNECTION_STRING}
               volumes:
                 - api-logs:/app/logs
               networks:
-                - discount-api-network
+                - pms_network
               healthcheck:
                 test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health || exit 0"]
                 interval: 30s
@@ -196,8 +196,8 @@ jobs:
                 start_period: 10s
 
           networks:
-            discount-api-network:
-              driver: bridge
+            pms_network:
+              external: true
 
           volumes:
             api-logs:
@@ -217,7 +217,7 @@ jobs:
           export TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN}"
           export TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID}"
           export OPENAI_API_KEY="${OPENAI_API_KEY}"
-          export DATABASE_CONNECTION_STRING="${DATABASE_CONNECTION_STRING}"
+          export PMS_DISCOUNT_CONNECTION_STRING="${PMS_DISCOUNT_CONNECTION_STRING}"
 
           # Debug information
           echo "Using API image: ${API_IMAGE}"
@@ -299,7 +299,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          DATABASE_CONNECTION_STRING: ${{ secrets.DATABASE_CONNECTION_STRING }}
+          PMS_DISCOUNT_CONNECTION_STRING: ${{ secrets.PMS_DISCOUNT_CONNECTION_STRING }}
           GITHUB_TOKEN: ${{ secrets.GIT_PAT }}
           GITHUB_USERNAME: ${{ github.repository_owner }}
         run: |
@@ -318,7 +318,7 @@ jobs:
             export TELEGRAM_BOT_TOKEN='$TELEGRAM_BOT_TOKEN' && \
             export TELEGRAM_CHAT_ID='$TELEGRAM_CHAT_ID' && \
             export OPENAI_API_KEY='$OPENAI_API_KEY' && \
-            export DATABASE_CONNECTION_STRING='$DATABASE_CONNECTION_STRING' && \
+            export PMS_DISCOUNT_CONNECTION_STRING='$PMS_DISCOUNT_CONNECTION_STRING' && \
             export GITHUB_TOKEN='$GITHUB_TOKEN' && \
             export GITHUB_USERNAME='$GITHUB_USERNAME' && \
             ./deploy-api.sh"

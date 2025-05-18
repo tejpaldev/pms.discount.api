@@ -33,7 +33,7 @@ public static class DbExtension
 
     private static void ApplyMigrations(IConfiguration config)
     {
-        string connectionString = Environment.GetEnvironmentVariable("ConnectionString");
+        string connectionString = Environment.GetEnvironmentVariable("PMS_DISCOUNT_CONNECTION_STRING");
         using var connection = new NpgsqlConnection(connectionString);
         connection.Open();
         using var cmd = new NpgsqlCommand()

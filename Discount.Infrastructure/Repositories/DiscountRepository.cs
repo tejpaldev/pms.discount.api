@@ -16,7 +16,7 @@ public class DiscountRepository : IDiscountRepository
     }
     public async Task<Coupon> GetDiscount(string productName)
     {
-        string connectionString = Environment.GetEnvironmentVariable("ConnectionString");
+        string connectionString = Environment.GetEnvironmentVariable("PMS_DISCOUNT_CONNECTION_STRING");
         await using var connection = new NpgsqlConnection(connectionString);
         var coupon = await connection.QueryFirstOrDefaultAsync<Coupon>
             ("SELECT * FROM Coupon WHERE ProductName = @ProductName", new { ProductName = productName });
@@ -27,7 +27,7 @@ public class DiscountRepository : IDiscountRepository
 
     public async Task<bool> CreateDiscount(Coupon coupon)
     {
-        string connectionString = Environment.GetEnvironmentVariable("ConnectionString");
+        string connectionString = Environment.GetEnvironmentVariable("PMS_DISCOUNT_CONNECTION_STRING");
         await using var connection = new NpgsqlConnection(connectionString);
 
         var affected =
@@ -43,7 +43,7 @@ public class DiscountRepository : IDiscountRepository
 
     public async Task<bool> UpdateDiscount(Coupon coupon)
     {
-        string connectionString = Environment.GetEnvironmentVariable("ConnectionString");
+        string connectionString = Environment.GetEnvironmentVariable("PMS_DISCOUNT_CONNECTION_STRING");
         await using var connection = new NpgsqlConnection(connectionString);
 
         var affected = await connection.ExecuteAsync
@@ -58,7 +58,7 @@ public class DiscountRepository : IDiscountRepository
 
     public async Task<bool> DeleteDiscount(string productName)
     {
-        string connectionString = Environment.GetEnvironmentVariable("ConnectionString");
+        string connectionString = Environment.GetEnvironmentVariable("PMS_DISCOUNT_CONNECTION_STRING");
         await using var connection = new NpgsqlConnection(connectionString);
 
         var affected = await connection.ExecuteAsync("DELETE FROM Coupon WHERE ProductName = @ProductName",
