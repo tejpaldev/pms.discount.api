@@ -25,6 +25,7 @@
       <PackageReference Include="Crypto.Common.Logging" Version="1.0.0" />
       <PackageReference Include="Crypto.EventBus.Messages" Version="1.0.0" />
       <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="11.0.0" />
+      <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     </ItemGroup>
 
 </Project>
