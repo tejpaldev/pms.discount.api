@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  API_IMAGE_NAME: ${{ github.repository_owner }}/pms.discount.api
+  PMS_DISCOUNT_API_IMAGE_NAME: ${{ github.repository_owner }}/pms.discount.api
   DOTNET_VERSION: "8.0.x"
 
 jobs:
@@ -107,7 +107,7 @@ jobs:
         id: meta-api
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.PMS_DISCOUNT_API_IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=sha,format=short
@@ -141,7 +141,7 @@ jobs:
           context: .
           file: ./deployment/docker/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:sha-${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/${{ env.PMS_DISCOUNT_API_IMAGE_NAME }}:sha-${{ github.sha }}
           labels: ${{ needs.prepare-docker.outputs.api_labels }}
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
@@ -170,7 +170,7 @@ jobs:
           cat > deployment/temp/docker-compose.yml << 'EOL'
           services:
             api:
-              image: ${API_IMAGE}
+              image: ${PMS_DISCOUNT_API_IMAGE}
               container_name: discount-api
               restart: unless-stopped
               ports:
@@ -211,7 +211,7 @@ jobs:
           set -e
 
           # Set environment variables for docker-compose
-          export API_IMAGE="${API_IMAGE}"
+          export PMS_DISCOUNT_API_IMAGE="${PMS_DISCOUNT_API_IMAGE}"
           export BINANCE_API_KEY="${BINANCE_API_KEY}"
           export BINANCE_API_SECRET="${BINANCE_API_SECRET}"
           export TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN}"
@@ -220,7 +220,7 @@ jobs:
           export PMS_DISCOUNT_CONNECTION_STRING="${PMS_DISCOUNT_CONNECTION_STRING}"
 
           # Debug information
-          echo "Using API image: ${API_IMAGE}"
+          echo "Using API image: ${PMS_DISCOUNT_API_IMAGE}"
           echo "Using GitHub username: ${GITHUB_USERNAME}"
 
           # Log in to GitHub Container Registry
@@ -291,7 +291,7 @@ jobs:
 
       - name: Deploy API to server
         env:
-          API_IMAGE: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:sha-${{ github.sha }}
+          PMS_DISCOUNT_API_IMAGE: ${{ env.REGISTRY }}/${{ env.PMS_DISCOUNT_API_IMAGE_NAME }}:sha-${{ github.sha }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           BINANCE_API_KEY: ${{ secrets.BINANCE_API_KEY }}
@@ -312,7 +312,7 @@ jobs:
 
           # Set environment variables and run deployment script
           ssh $SSH_USER@$SERVER_HOST "cd ~/discount-api && \
-            export API_IMAGE='$API_IMAGE' && \
+            export PMS_DISCOUNT_API_IMAGE='$PMS_DISCOUNT_API_IMAGE' && \
             export BINANCE_API_KEY='$BINANCE_API_KEY' && \
             export BINANCE_API_SECRET='$BINANCE_API_SECRET' && \
             export TELEGRAM_BOT_TOKEN='$TELEGRAM_BOT_TOKEN' && \
