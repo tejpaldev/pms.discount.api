@@ -49,7 +49,7 @@ USER appuser
 COPY --from=build --chown=appuser:appuser /app/publish .
 
 # Set environment variables
-ENV ASPNETCORE_URLS=http://+:80
+ENV ASPNETCORE_URLS=http://+:5002
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true
 
@@ -58,7 +58,7 @@ RUN mkdir -p logs && \
     chmod 755 logs
 
 # Expose port 80
-EXPOSE 80
+EXPOSE 5002
 
 # Set the entry point
 ENTRYPOINT ["dotnet", "Discount.API.dll"]

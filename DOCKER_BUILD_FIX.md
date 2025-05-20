@@ -121,7 +121,7 @@ To test these changes locally:
 
 2. Run the container:
    ```bash
-   docker run -p 5002:80 discount-api
+   docker run -p 5002:5002 discount-api
    ```
 
 ## Notes

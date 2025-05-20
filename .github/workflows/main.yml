@@ -174,7 +174,7 @@ jobs:
               container_name: discount-api
               restart: unless-stopped
               ports:
-                - "5002:80"
+                - "5002:5002"
               environment:
                 - ASPNETCORE_ENVIRONMENT=Production
                 - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true
@@ -189,7 +189,7 @@ jobs:
               networks:
                 - discount-api-network
               healthcheck:
-                test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health || exit 0"]
+                test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5002/health || exit 0"]
                 interval: 30s
                 timeout: 10s
                 retries: 3
