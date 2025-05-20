@@ -17,7 +17,7 @@ public static class DbExtension
             var logger = services.GetRequiredService<ILogger<TContext>>();
             try
             {
-                logger.LogInformation("Discount DB Migration Started");
+                logger.LogInformation("Discount DB Migration Started", Environment.GetEnvironmentVariable("PMS_DISCOUNT_CONNECTION_STRING"));
                 ApplyMigrations(config);
                 logger.LogInformation("Discount DB Migration Completed");
             }
@@ -47,7 +47,7 @@ public static class DbExtension
                                                 Description TEXT,
                                                 Amount INT)";
         cmd.ExecuteNonQuery();
-        
+
         cmd.CommandText = "INSERT INTO Coupon(ProductName, Description, Amount) VALUES('Adidas Quick Force Indoor Badminton Shoes', 'Shoe Discount', 500);";
         cmd.ExecuteNonQuery();
 
