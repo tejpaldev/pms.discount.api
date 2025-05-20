@@ -12,7 +12,7 @@ services:
     container_name: discount-api
     restart: unless-stopped
     ports:
-      - "5002:80"
+      - "5002:5002"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true
